@@ -1,0 +1,100 @@
+// O schema é a "planta" do banco de dados: cada model vira uma tabela.
+// Depois de mudar algo aqui, rode: npx prisma migrate dev
+
+//generator client {
+//  provider = "prisma-client"
+//  output   = "../generated/prisma"
+//}
+
+//datasource db {
+//  provider = "postgresql"
+//}
+
+// Enums travam os valores possíveis — o banco recusa qualquer outro.
+//enum TaskStatus {
+//  todo
+//  progress
+//  done
+//}
+
+//enum TaskPriority {
+//  low
+//  medium
+//  high
+//}
+
+//model Task {
+//  id          String       @id @default(cuid())
+//  title       String
+//  description String
+//  status      TaskStatus   @default(todo)
+//  priority    TaskPriority @default(medium)
+//  assignee    String?
+//  dueDate     DateTime?
+//  createdAt   DateTime     @default(now())
+//}
+
+
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id String @id @default(cuid())
+  email String @unique
+  password String
+  name String
+  role Role @default(USUARIO)
+  teamId String?
+  team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  //Timestamps  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  //Indexes
+  @@index([email])
+  @@index([role])
+  @@index([teamId])
+
+  //map
+  @@map("users")
+}
+
+enum Role {
+  PRESIDENTE
+  VICE_PRESIDENTE
+  TESOUREIRO
+  VICE_TESOUREIRO
+  SECRETARIO
+  VICE_SECRETARIO
+  DIRETOR_ESPORTES
+  VICE_DIRETOR_ESPORTES
+  DIRETOR_CULTURA
+  VICE_DIRETOR_CULTURA
+  DIRETOR_MARKETING
+  VICE_DIRETOR_MARKETING
+  AJUDANTE
+  USUARIO
+}
+
+model Team {
+  id String @id @default(cuid())
+  name String @unique
+  description String?
+  code String @unique
+  members User[]
+
+  //Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  //map
+  @@map("teams")
+}
