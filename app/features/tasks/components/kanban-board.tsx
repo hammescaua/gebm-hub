@@ -7,52 +7,7 @@ import { DndContext, type DragEndEvent } from "@dnd-kit/core"
 import { arrayMove } from "@dnd-kit/sortable"
 import { TaskFormData } from "@/app/features/tasks/schemas/task-schema"
 import { TaskForm } from "@/app/features/tasks/components/task-form"
-
-const initialTasks: Task[] = [
-    {
-        id: "1",
-        title: "Criar cartaz",
-        description: "Criar arte para divulgação do evento",
-        priority: "HIGH",
-        status: "TODO",
-        position: 0,
-        assignee: "João",
-        dueDate: "2026-08-12",
-    },
-    {
-        id: "2",
-        title: "Organizar reunião",
-        description: "Definir pauta da próxima reunião",
-        priority: "MEDIUM",
-        status: "IN_PROGRESS",
-        position: 0,
-        assignee: "Maria",
-        dueDate: "2026-08-15",
-    },
-    {
-        id: "3",
-        title: "Comprar materiais",
-        priority: "LOW",
-        position: 0,
-        status: "DONE",
-        assignee: "Pedro",
-    },
-]
-
-const columns: KanbanColumnType[] = [
-    {
-        id: "TODO",
-        title: "A fazer",
-    },
-    {
-        id: "IN_PROGRESS",
-        title: "Em andamento",
-    },
-    {
-        id: "DONE",
-        title: "Concluído",
-    },
-] as const
+import { initialTasks, columns } from "../data/mock-tasks"
 
 function isTaskStatus(
     value: string

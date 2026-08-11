@@ -1,14 +1,3 @@
-export type Task = {
-    id: string;
-    title: string;
-    description: string;
-    status: string;
-    priority: string;
-    assignee?: string;
-    dueDate?: string;
-    createdAt: Date;
-};
-
 export enum Role {
     PRESIDENTE = "PRESIDENTE",
     VICE_PRESIDENTE = "VICE_PRESIDENTE",
