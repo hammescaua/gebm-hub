@@ -1,70 +1,125 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import type { Task, TaskPriority } from "@/types";
-
-const PRIORITY_LABEL: Record<TaskPriority, string> = {
-    low: "baixa",
-    medium: "média",
-    high: "alta",
-};
-
-const PRIORITY_VARIANT: Record<TaskPriority, "outline" | "secondary" | "destructive"> = {
-    low: "outline",
-    medium: "secondary",
-    high: "destructive",
-};
+import { useSortable } from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
+import type {
+    Task,
+    TaskStatus,
+} from "@/types/task"
 
 type TaskCardProps = {
     task: Task;
-    onMove: (taskId: string, direction: "left" | "right") => void;
-};
+    onMoveTask: (
+        taskId: string,
+        newStatus: TaskStatus
+    ) => void;
+    onEdit: (task: Task) => void;
+    onDelete: (taskId: string) => void;
+}
 
-export default function TaskCard({ task, onMove }: TaskCardProps) {
-    const isDone = task.status === "done";
-    const isTodo = task.status === "todo";
+export function TaskCard({
+    task,
+    onMoveTask,
+    onEdit,
+    onDelete,
+}: TaskCardProps) {
+
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({
+        id: task.id,
+    })
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    }
 
     return (
-        <article className="rounded-lg border bg-card p-3 shadow-xs transition-shadow hover:shadow-sm">
-            <div className="flex items-start justify-between gap-2">
-                <p className={cn("text-sm font-medium leading-snug", isDone && "text-muted-foreground line-through")}>
-                    {task.title}
+        <article
+            className="text-white"
+            ref={setNodeRef}
+            style={style}
+            {...listeners}
+            {...attributes}
+        >
+            <h3>{task.title}</h3>
+
+            {task.description && (
+                <p>{task.description}</p>
+            )}
+
+            <p>
+                Prioridade: {task.priority}
+            </p>
+
+            {task.assignee && (
+                <p>
+                    Responsável: {task.assignee}
                 </p>
-                <Badge variant={PRIORITY_VARIANT[task.priority]} className="shrink-0 text-[10px]">
-                    {PRIORITY_LABEL[task.priority]}
-                </Badge>
-            </div>
+            )}
 
-            <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{task.description}</p>
+            {task.dueDate && (
+                <p>
+                    Prazo: {task.dueDate}
+                </p>
+            )}
 
-            <div className="mt-3 flex items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground truncate">
-                    {task.assignee}
-                    {task.dueDate && !isDone && ` · ${task.dueDate}`}
-                </span>
-
-                <div className="flex gap-1 shrink-0">
-                    <Button
-                        variant="outline"
-                        size="icon-xs"
-                        aria-label="Mover para a coluna anterior"
-                        disabled={isTodo}
-                        onClick={() => onMove(task.id, "left")}
+            {/* Botões temporários */}
+            <div>
+                {task.status !== "TODO" && (
+                    <button
+                        onClick={() =>
+                            onMoveTask(
+                                task.id,
+                                "TODO"
+                            )
+                        }
                     >
-                        <ChevronLeft className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="icon-xs"
-                        aria-label="Mover para a próxima coluna"
-                        disabled={isDone}
-                        onClick={() => onMove(task.id, "right")}
+                        A fazer
+                    </button>
+                )}
+
+                {task.status !== "IN_PROGRESS" && (
+                    <button
+                        onClick={() =>
+                            onMoveTask(
+                                task.id,
+                                "IN_PROGRESS"
+                            )
+                        }
                     >
-                        <ChevronRight className="h-3.5 w-3.5" />
-                    </Button>
-                </div>
+                        Em andamento
+                    </button>
+                )}
+
+                {task.status !== "DONE" && (
+                    <button
+                        onClick={() =>
+                            onMoveTask(
+                                task.id,
+                                "DONE"
+                            )
+                        }
+                    >
+                        Concluído
+                    </button>
+                )}
+
+                <button
+                    onClick={() => onEdit(task)}
+                >
+                    Editar
+                </button>
+
+                <button
+                    onClick={() => onDelete(task.id)}
+                >
+                    Excluir
+                </button>
             </div>
         </article>
-    );
+    )
 }

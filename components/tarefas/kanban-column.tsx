@@ -1,39 +1,57 @@
-import type { Task, TaskStatus } from "@/types";
-import TaskCard from "./task-card";
-
-const COLUMN_TITLES: Record<TaskStatus, string> = {
-    todo: "A fazer",
-    progress: "Fazendo",
-    done: "Feito",
-};
+import { TaskCard } from "./task-card"
+import { TaskPriority, TaskStatus, Task } from "@/types/task"
+import { useDroppable } from "@dnd-kit/core"
+import { SortableContext } from "@dnd-kit/sortable"
 
 type KanbanColumnProps = {
-    status: TaskStatus;
-    tasks: Task[];
-    onMove: (taskId: string, direction: "left" | "right") => void;
-};
+    id: TaskStatus
+    title: string
+    tasks: Task[]
+    onMoveTask: (
+        taskId: string,
+        newStatus: TaskStatus
+    ) => void
+    onEdit: (task: Task) => void;
+    onDelete: (taskId: string) => void;
+}
 
-export default function KanbanColumn({ status, tasks, onMove }: KanbanColumnProps) {
+export function KanbanColumn({
+    id,
+    title,
+    tasks,
+    onMoveTask,
+    onEdit,
+    onDelete,
+}: KanbanColumnProps) {
+
+    const {
+        setNodeRef,
+        isOver,
+    } = useDroppable({
+        id,
+    })
+
     return (
-        <section className="flex flex-col gap-2.5 self-start rounded-xl bg-muted/60 p-3 border border-border/40">
-            <header className="flex items-center justify-between px-1 py-0.5">
-                <h2 className="text-sm font-semibold tracking-tight">{COLUMN_TITLES[status]}</h2>
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-background text-xs font-medium text-muted-foreground shadow-xs">
-                    {tasks.length}
-                </span>
+        <section ref={setNodeRef}>
+            <header>
+                <h2>{title}</h2>
+                <span>{tasks.length}</span>
             </header>
-
-            <div className="flex flex-col gap-2 min-h-30">
-                {tasks.map((task) => (
-                    <TaskCard key={task.id} task={task} onMove={onMove} />
-                ))}
-
-                {tasks.length === 0 && (
-                    <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed p-6 text-center">
-                        <p className="text-xs text-muted-foreground">Nenhuma tarefa aqui</p>
-                    </div>
-                )}
-            </div>
+            <SortableContext
+                items={tasks.map((task) => task.id)}
+            >
+                <div>
+                    {tasks.map((task) => (
+                        <TaskCard
+                            key={task.id}
+                            task={task}
+                            onMoveTask={onMoveTask}
+                            onEdit={onEdit}
+                            onDelete={onDelete}
+                        />
+                    ))}
+                </div>
+            </SortableContext>
         </section>
-    );
+    )
 }
