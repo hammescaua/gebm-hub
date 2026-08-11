@@ -1,13 +1,37 @@
 "use client"
 
 import { useState } from "react"
+
+import type {
+    Task,
+    TaskStatus,
+} from "@/types/task"
+
+import type {
+    TaskFormData,
+} from "../schemas/task-schema"
+
 import { KanbanColumn } from "./kanban-column"
-import { Task, KanbanColumn as KanbanColumnType, TaskStatus } from "@/types/task"
-import { DndContext, type DragEndEvent } from "@dnd-kit/core"
-import { arrayMove } from "@dnd-kit/sortable"
-import { TaskFormData } from "@/app/features/tasks/schemas/task-schema"
-import { TaskForm } from "@/app/features/tasks/components/task-form"
-import { initialTasks, columns } from "../data/mock-tasks"
+import { TaskForm } from "./task-form"
+
+import {
+    mockTasks,
+    columns,
+} from "../data/mock-tasks"
+
+import {
+    DndContext,
+    PointerSensor,
+    KeyboardSensor,
+    useSensor,
+    useSensors,
+    type DragEndEvent,
+} from "@dnd-kit/core"
+
+import {
+    arrayMove,
+    sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable"
 
 function isTaskStatus(
     value: string
@@ -21,11 +45,33 @@ function isTaskStatus(
 
 export default function KanbanBoard() {
 
-    const [tasks, setTasks] = useState<Task[]>(initialTasks)
+    const [tasks, setTasks] =
+        useState<Task[]>(mockTasks)
 
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+    const [isCreateModalOpen, setIsCreateModalOpen] =
+        useState(false)
 
-    const [editingTask, setEditingTask] = useState<Task | null>(null)
+    const [editingTask, setEditingTask] =
+        useState<Task | null>(null)
+
+    const sensors = useSensors(
+        useSensor(
+            PointerSensor,
+            {
+                activationConstraint: {
+                    distance: 5,
+                },
+            }
+        ),
+
+        useSensor(
+            KeyboardSensor,
+            {
+                coordinateGetter:
+                    sortableKeyboardCoordinates,
+            }
+        )
+    )
 
     function moveTask(
         taskId: string,
@@ -41,88 +87,85 @@ export default function KanbanBoard() {
                 return currentTasks
             }
 
-            const sourceStatus = task.status
-
-            if (sourceStatus === newStatus) {
+            if (task.status === newStatus) {
                 return currentTasks
             }
 
             const sourceTasks = currentTasks
                 .filter(
-                    (task) =>
-                        task.status === sourceStatus &&
-                        task.id !== taskId
+                    (item) =>
+                        item.status === task.status &&
+                        item.id !== taskId
                 )
                 .sort(
-                    (a, b) => a.position - b.position
+                    (a, b) =>
+                        a.position - b.position
                 )
 
-            const destinationTasks = currentTasks
-                .filter(
-                    (task) =>
-                        task.status === newStatus
-                )
-                .sort(
-                    (a, b) => a.position - b.position
-                )
+            const destinationTasks =
+                currentTasks
+                    .filter(
+                        (item) =>
+                            item.status ===
+                            newStatus
+                    )
+                    .sort(
+                        (a, b) =>
+                            a.position - b.position
+                    )
 
-            const destinationIndex = overId
+            const targetIndex = overId
                 ? destinationTasks.findIndex(
-                    (task) => task.id === overId
+                    (item) =>
+                        item.id === overId
                 )
                 : destinationTasks.length
 
-            const newDestinationIndex =
-                destinationIndex === -1
+            const insertIndex =
+                targetIndex === -1
                     ? destinationTasks.length
-                    : destinationIndex
-
-            const movedTask = {
-                ...task,
-                status: newStatus,
-            }
+                    : targetIndex
 
             destinationTasks.splice(
-                newDestinationIndex,
+                insertIndex,
                 0,
-                movedTask
+                {
+                    ...task,
+                    status: newStatus,
+                }
             )
 
-            const updatedSourceTasks =
-                sourceTasks.map((task, index) => ({
-                    ...task,
-                    position: index,
-                }))
-
-            const updatedDestinationTasks =
-                destinationTasks.map((task, index) => ({
-                    ...task,
-                    position: index,
-                }))
-
-            const updatedIds = new Set([
-                ...updatedSourceTasks.map(
-                    (task) => task.id
-                ),
-                ...updatedDestinationTasks.map(
-                    (task) => task.id
-                ),
-            ])
-
-            return currentTasks.map((task) => {
-                if (!updatedIds.has(task.id)) {
-                    return task
-                }
-
-                return (
-                    updatedSourceTasks.find(
-                        (item) => item.id === task.id
-                    ) ??
-                    updatedDestinationTasks.find(
-                        (item) => item.id === task.id
-                    )!
+            const updatedSource =
+                sourceTasks.map(
+                    (item, index) => ({
+                        ...item,
+                        position: index,
+                    })
                 )
-            })
+
+            const updatedDestination =
+                destinationTasks.map(
+                    (item, index) => ({
+                        ...item,
+                        position: index,
+                    })
+                )
+
+            const updatedTasks = new Map(
+                [
+                    ...updatedSource,
+                    ...updatedDestination,
+                ].map((item) => [
+                    item.id,
+                    item,
+                ])
+            )
+
+            return currentTasks.map(
+                (item) =>
+                    updatedTasks.get(item.id) ??
+                    item
+            )
         })
     }
 
@@ -143,28 +186,41 @@ export default function KanbanBoard() {
                 return currentTasks
             }
 
-            if (activeTask.status !== overTask.status) {
+            if (
+                activeTask.status !==
+                overTask.status
+            ) {
                 return currentTasks
             }
 
             const columnTasks = currentTasks
                 .filter(
                     (task) =>
-                        task.status === activeTask.status
+                        task.status ===
+                        activeTask.status
                 )
                 .sort(
-                    (a, b) => a.position - b.position
+                    (a, b) =>
+                        a.position - b.position
                 )
 
-            const oldIndex = columnTasks.findIndex(
-                (task) => task.id === activeId
-            )
+            const oldIndex =
+                columnTasks.findIndex(
+                    (task) =>
+                        task.id === activeId
+                )
 
-            const newIndex = columnTasks.findIndex(
-                (task) => task.id === overId
-            )
+            const newIndex =
+                columnTasks.findIndex(
+                    (task) =>
+                        task.id === overId
+                )
 
-            if (oldIndex === newIndex) {
+            if (
+                oldIndex === -1 ||
+                newIndex === -1 ||
+                oldIndex === newIndex
+            ) {
                 return currentTasks
             }
 
@@ -174,89 +230,60 @@ export default function KanbanBoard() {
                 newIndex
             )
 
-            return currentTasks.map((task) => {
-                const newIndex = reorderedTasks.findIndex(
-                    (item) => item.id === task.id
+            const positionById =
+                new Map(
+                    reorderedTasks.map(
+                        (task, index) => [
+                            task.id,
+                            index,
+                        ]
+                    )
                 )
 
-                if (newIndex === -1) {
-                    return task
-                }
+            return currentTasks.map(
+                (task) => {
+                    const position =
+                        positionById.get(
+                            task.id
+                        )
 
-                return {
-                    ...task,
-                    position: newIndex,
+                    if (
+                        position === undefined
+                    ) {
+                        return task
+                    }
+
+                    return {
+                        ...task,
+                        position,
+                    }
                 }
-            })
+            )
         })
     }
 
-    function handleDragEnd(event: DragEndEvent) {
-        const { active, over } = event
-
-        if (!over) {
-            return
-        }
-
-        const activeId = String(active.id)
-        const overId = String(over.id)
-
-        if (activeId === overId) {
-            return
-        }
-
-        const activeTask = tasks.find(
-            (task) => task.id === activeId
-        )
-
-        const overTask = tasks.find(
-            (task) => task.id === overId
-        )
-
-        if (!activeTask) {
-            return
-        }
-
-        // Dentro da mesma coluna
-        if (
-            overTask &&
-            activeTask.status === overTask.status
-        ) {
-            reorderTasks(activeId, overId)
-            return
-        }
-
-        // Para outra coluna
-        const targetStatus = overTask
-            ? overTask.status
-            : overId
-
-        if (!isTaskStatus(targetStatus)) {
-            return
-        }
-
-        moveTask(
-            activeId,
-            targetStatus,
-            overTask?.id
-        )
-    }
-
-    function createTask(data: TaskFormData) {
+    function createTask(
+        data: TaskFormData
+    ) {
         setTasks((currentTasks) => {
-            const todoTasks = currentTasks.filter(
-                (task) => task.status === "TODO"
-            )
+            const todoTasks =
+                currentTasks.filter(
+                    (task) =>
+                        task.status === "TODO"
+                )
 
             const newTask: Task = {
                 id: crypto.randomUUID(),
                 title: data.title,
-                description: data.description,
+                description:
+                    data.description || undefined,
                 priority: data.priority,
                 status: "TODO",
                 position: todoTasks.length,
-                assignee: data.assignee,
-                dueDate: data.dueDate,
+                assignee:
+                    data.assignee || undefined,
+                dueDate:
+                    data.dueDate || undefined,
             }
 
             return [
@@ -271,34 +298,141 @@ export default function KanbanBoard() {
         data: TaskFormData
     ) {
         setTasks((currentTasks) =>
-            currentTasks.map((task) => {
-                if (task.id !== taskId) {
-                    return task
-                }
-
-                return {
-                    ...task,
-                    title: data.title,
-                    description: data.description,
-                    priority: data.priority,
-                    assignee: data.assignee,
-                    dueDate: data.dueDate,
-                }
-            })
+            currentTasks.map((task) =>
+                task.id === taskId
+                    ? {
+                        ...task,
+                        title: data.title,
+                        description:
+                            data.description ||
+                            undefined,
+                        priority: data.priority,
+                        assignee:
+                            data.assignee ||
+                            undefined,
+                        dueDate:
+                            data.dueDate ||
+                            undefined,
+                    }
+                    : task
+            )
         )
     }
 
-    function deleteTask(taskId: string) {
-        setTasks((currentTasks) =>
-            currentTasks.filter(
-                (task) => task.id !== taskId
+    function deleteTask(
+        taskId: string
+    ) {
+        setTasks((currentTasks) => {
+            const task = currentTasks.find(
+                (item) =>
+                    item.id === taskId
             )
+
+            if (!task) {
+                return currentTasks
+            }
+
+            return currentTasks
+                .filter(
+                    (item) =>
+                        item.id !== taskId
+                )
+                .map((item) => {
+                    if (
+                        item.status !==
+                        task.status
+                    ) {
+                        return item
+                    }
+
+                    if (
+                        item.position >
+                        task.position
+                    ) {
+                        return {
+                            ...item,
+                            position:
+                                item.position - 1,
+                        }
+                    }
+
+                    return item
+                })
+        })
+    }
+
+    function handleDragEnd(
+        event: DragEndEvent
+    ) {
+        const { active, over } = event
+
+        if (!over) {
+            return
+        }
+
+        const activeId =
+            String(active.id)
+
+        const overId =
+            String(over.id)
+
+        if (activeId === overId) {
+            return
+        }
+
+        const activeTask =
+            tasks.find(
+                (task) =>
+                    task.id === activeId
+            )
+
+        const overTask =
+            tasks.find(
+                (task) =>
+                    task.id === overId
+            )
+
+        if (!activeTask) {
+            return
+        }
+
+        // Reordenar dentro da mesma coluna
+        if (
+            overTask &&
+            activeTask.status ===
+            overTask.status
+        ) {
+            reorderTasks(
+                activeId,
+                overId
+            )
+
+            return
+        }
+
+        // Mover para outra coluna
+        const targetStatus =
+            overTask?.status ?? overId
+
+        if (
+            !isTaskStatus(
+                targetStatus
+            )
+        ) {
+            return
+        }
+
+        moveTask(
+            activeId,
+            targetStatus,
+            overTask?.id
         )
     }
 
     return (
         <div>
             <DndContext
+                sensors={sensors}
                 onDragEnd={handleDragEnd}
             >
                 {columns.map((column) => (
@@ -310,7 +444,6 @@ export default function KanbanBoard() {
                             .filter((task) => task.status === column.id)
                             .sort((a, b) => a.position - b.position)
                         }
-                        onMoveTask={moveTask}
                         onEdit={setEditingTask}
                         onDelete={deleteTask}
                     />

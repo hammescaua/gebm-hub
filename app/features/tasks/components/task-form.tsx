@@ -9,10 +9,16 @@ import {
 } from "../schemas/task-schema"
 
 type TaskFormProps = {
-    onSubmit: (data: TaskFormData) => void
+    defaultValues?: Partial<TaskFormData>
+    submitLabel?: string
+    onSubmit: (
+        data: TaskFormData
+    ) => void
 }
 
 export function TaskForm({
+    defaultValues,
+    submitLabel = "Criar tarefa",
     onSubmit,
 }: TaskFormProps) {
 
@@ -24,13 +30,16 @@ export function TaskForm({
             isSubmitting,
         },
     } = useForm<TaskFormData>({
-        resolver: zodResolver(taskFormSchema),
+        resolver:
+            zodResolver(taskFormSchema),
+
         defaultValues: {
             title: "",
             description: "",
             priority: "MEDIUM",
             assignee: "",
             dueDate: "",
+            ...defaultValues,
         },
     })
 
@@ -123,6 +132,15 @@ export function TaskForm({
                 disabled={isSubmitting}
             >
                 Criar tarefa
+            </button>
+
+            <button
+                type="submit"
+                disabled={isSubmitting}
+            >
+                {isSubmitting
+                    ? "Salvando..."
+                    : submitLabel}
             </button>
         </form>
     )

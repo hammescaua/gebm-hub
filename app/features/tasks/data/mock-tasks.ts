@@ -1,6 +1,6 @@
 import { Task, KanbanColumn as KanbanColumnType } from "@/types/task"
 
-export const initialTasks: Task[] = [
+export const mockTasks: Task[] = [
     {
         id: "1",
         title: "Criar cartaz",
