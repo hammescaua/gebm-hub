@@ -1,4 +1,4 @@
-"use client";
+/*"use client";
 
 import { useAuth } from "@/app/provider/AuthProvider";
 import { User } from "@/types";
@@ -36,11 +36,9 @@ const Header = ({ user }: HeaderProps) => {
         <header className="bg-slate-900 border-b border-slate-700">
             <div className="container mx-auto px-4">
                 <div className="flex justify-between items-center h-16">
-                    {/*Logo*/}
                     <Link href="/" className="font-bold text-xl text-white">
                         Team Access
                     </Link>
-                    {/*Navigation*/}
                     <nav>
                         {navigation.map((item) => (
                             <Link
@@ -52,7 +50,6 @@ const Header = ({ user }: HeaderProps) => {
                             </Link>
                         ))}
                     </nav>
-                    {/*User Info*/}
                     <div className="flex items-center space-x-4">
                         {user
                             ? (
@@ -86,3 +83,4 @@ const Header = ({ user }: HeaderProps) => {
 };
 
 export default Header;
+*/

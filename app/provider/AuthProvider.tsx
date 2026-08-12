@@ -1,4 +1,4 @@
-"use client";
+/*"use client";
 
 import { apiClient } from "@/lib/apiClient";
 import { checkUserPermission } from "@/lib/permissions";
@@ -101,3 +101,4 @@ export const useAuth = () => {
 };
 
 export default AuthProvider;
+*/

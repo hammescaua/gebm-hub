@@ -1,4 +1,4 @@
-import { Task, KanbanColumn as KanbanColumnType } from "@/types/task"
+import type { Task, KanbanColumn as KanbanColumnType } from "@/types/task"
 
 export const mockTasks: Task[] = [
     {

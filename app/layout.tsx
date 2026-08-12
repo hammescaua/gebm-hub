@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import AuthProvider from "./provider/AuthProvider";
+// import AuthProvider from "./provider/AuthProvider";
+import { Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
 
+const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
   title: "GEBM Hub",
@@ -17,12 +20,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      suppressHydrationWarning
+      suppressHydrationWarning className={cn("font-sans", geist.variable)}
     >
       <body className="min-h-screen bg-slate-950 text-slate">
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        {/*<AuthProvider>*/}
+        {children}
+        {/*</AuthProvider>*/}
       </body>
     </html>
   );

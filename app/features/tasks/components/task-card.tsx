@@ -1,21 +1,16 @@
 "use client"
 
-import {
-    useSortable,
-} from "@dnd-kit/sortable"
+import { useSortable } from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 
-import {
-    CSS,
-} from "@dnd-kit/utilities"
+import type { Task } from "@/types/task"
 
-import type {
-    Task,
-} from "@/types/task"
+import TaskCardContent from "./task-card-content"
 
 type TaskCardProps = {
     task: Task
     onEdit: (task: Task) => void
-    onDelete: (taskId: string) => void
+    onDelete: (task: Task) => void
 }
 
 export function TaskCard({
@@ -29,15 +24,13 @@ export function TaskCard({
         setNodeRef,
         transform,
         transition,
+        isDragging,
     } = useSortable({
         id: task.id,
     })
 
     const style = {
-        transform:
-            CSS.Transform.toString(
-                transform
-            ),
+        transform: CSS.Transform.toString(transform),
         transition,
     }
 
@@ -45,68 +38,28 @@ export function TaskCard({
         <article
             ref={setNodeRef}
             style={style}
-            {...attributes}
+            className={[
+                "group relative rounded-xl border",
+                "border-white/10 bg-zinc-900/80",
+                "p-4 shadow-sm",
+                "transition-all duration-200",
+                "hover:border-white/20",
+                "hover:bg-zinc-900",
+                "hover:shadow-lg",
+                isDragging
+                    ? "z-50 opacity-40"
+                    : "",
+            ].join(" ")}
         >
-            <div>
-                <button
-                    type="button"
-                    {...listeners}
-                    aria-label={`Arrastar ${task.title}`}
-                >
-                    ⋮⋮
-                </button>
-
-                <h3>
-                    {task.title}
-                </h3>
-            </div>
-
-            {task.description && (
-                <p>
-                    {task.description}
-                </p>
-            )}
-
-            <p>
-                Prioridade:{" "}
-                {task.priority}
-            </p>
-
-            {task.assignee && (
-                <p>
-                    Responsável:{" "}
-                    {task.assignee}
-                </p>
-            )}
-
-            {task.dueDate && (
-                <p>
-                    Prazo:{" "}
-                    {task.dueDate}
-                </p>
-            )}
-
-            <div>
-                <button
-                    type="button"
-                    onClick={() =>
-                        onEdit(task)
-                    }
-                >
-                    Editar
-                </button>
-
-                <button
-                    type="button"
-                    onClick={() =>
-                        onDelete(
-                            task.id
-                        )
-                    }
-                >
-                    Excluir
-                </button>
-            </div>
+            <TaskCardContent
+                task={task}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                dragHandleProps={{
+                    attributes,
+                    listeners,
+                }}
+            />
         </article>
     )
 }

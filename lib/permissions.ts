@@ -1,5 +1,6 @@
 import { Role, User } from "@/types";
 
+/*
 export const ROLE_HIERARCHY: Record<Role, number> = {
     [Role.USUARIO]: 0,
     [Role.AJUDANTE]: 1,
@@ -16,7 +17,8 @@ export const ROLE_HIERARCHY: Record<Role, number> = {
     [Role.VICE_PRESIDENTE]: 3,
     [Role.PRESIDENTE]: 3
 };
-
+*/
+/*
 export const checkUserPermission = (
     user: User,
     requiredRole: Role | Role[]
@@ -36,3 +38,4 @@ export const checkUserPermission = (
 
     return userRoleValue >= requiredRoleValue;
 };
+*/

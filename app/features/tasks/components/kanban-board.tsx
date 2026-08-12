@@ -2,6 +2,24 @@
 
 import { useState } from "react"
 
+import {
+    DndContext,
+    DragOverlay,
+    PointerSensor,
+    KeyboardSensor,
+    closestCorners,
+    useSensor,
+    useSensors,
+    type DragStartEvent,
+    type DragEndEvent,
+    type DragCancelEvent,
+} from "@dnd-kit/core"
+
+import {
+    arrayMove,
+    sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable"
+
 import type {
     Task,
     TaskStatus,
@@ -11,27 +29,34 @@ import type {
     TaskFormData,
 } from "../schemas/task-schema"
 
-import { KanbanColumn } from "./kanban-column"
-import { TaskForm } from "./task-form"
-
 import {
     mockTasks,
     columns,
 } from "../data/mock-tasks"
 
-import {
-    DndContext,
-    PointerSensor,
-    KeyboardSensor,
-    useSensor,
-    useSensors,
-    type DragEndEvent,
-} from "@dnd-kit/core"
+import { KanbanColumn } from "./kanban-column"
+import { TaskForm } from "./task-form"
+
+import { Button } from "@/components/ui/button"
 
 import {
-    arrayMove,
-    sortableKeyboardCoordinates,
-} from "@dnd-kit/sortable"
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
+
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 function isTaskStatus(
     value: string
@@ -44,14 +69,19 @@ function isTaskStatus(
 }
 
 export default function KanbanBoard() {
-
     const [tasks, setTasks] =
         useState<Task[]>(mockTasks)
+
+    const [activeTask, setActiveTask] =
+        useState<Task | null>(null)
 
     const [isCreateModalOpen, setIsCreateModalOpen] =
         useState(false)
 
     const [editingTask, setEditingTask] =
+        useState<Task | null>(null)
+
+    const [deletingTask, setDeletingTask] =
         useState<Task | null>(null)
 
     const sensors = useSensors(
@@ -106,8 +136,7 @@ export default function KanbanBoard() {
                 currentTasks
                     .filter(
                         (item) =>
-                            item.status ===
-                            newStatus
+                            item.status === newStatus
                     )
                     .sort(
                         (a, b) =>
@@ -276,14 +305,17 @@ export default function KanbanBoard() {
                 id: crypto.randomUUID(),
                 title: data.title,
                 description:
-                    data.description || undefined,
+                    data.description ||
+                    undefined,
                 priority: data.priority,
                 status: "TODO",
                 position: todoTasks.length,
                 assignee:
-                    data.assignee || undefined,
+                    data.assignee ||
+                    undefined,
                 dueDate:
-                    data.dueDate || undefined,
+                    data.dueDate ||
+                    undefined,
             }
 
             return [
@@ -306,7 +338,8 @@ export default function KanbanBoard() {
                         description:
                             data.description ||
                             undefined,
-                        priority: data.priority,
+                        priority:
+                            data.priority,
                         assignee:
                             data.assignee ||
                             undefined,
@@ -361,10 +394,29 @@ export default function KanbanBoard() {
         })
     }
 
+    function handleDragStart(
+        event: DragStartEvent
+    ) {
+        const taskId = String(event.active.id)
+
+        const task = tasks.find(
+            (task) => task.id === taskId
+        )
+
+        if (!task) {
+            return
+        }
+
+        setActiveTask(task)
+    }
+
     function handleDragEnd(
         event: DragEndEvent
     ) {
-        const { active, over } = event
+        const {
+            active,
+            over,
+        } = event
 
         if (!over) {
             return
@@ -396,7 +448,7 @@ export default function KanbanBoard() {
             return
         }
 
-        // Reordenar dentro da mesma coluna
+        // Reorder inside the same column.
         if (
             overTask &&
             activeTask.status ===
@@ -410,7 +462,7 @@ export default function KanbanBoard() {
             return
         }
 
-        // Mover para outra coluna
+        // Move to another column.
         const targetStatus =
             overTask?.status ?? overId
 
@@ -429,69 +481,240 @@ export default function KanbanBoard() {
         )
     }
 
+    function handleDragCancel(
+        _event: DragCancelEvent
+    ) {
+        setActiveTask(null)
+    }
+
     return (
-        <div>
-            <DndContext
-                sensors={sensors}
-                onDragEnd={handleDragEnd}
-            >
-                {columns.map((column) => (
-                    <KanbanColumn
-                        key={column.id}
-                        id={column.id}
-                        title={column.title}
-                        tasks={tasks
-                            .filter((task) => task.status === column.id)
-                            .sort((a, b) => a.position - b.position)
-                        }
-                        onEdit={setEditingTask}
-                        onDelete={deleteTask}
-                    />
-                ))}
-            </DndContext>
-            <div>
-                <button
+        <div className="space-y-6">
+            {/* Board header */}
+            <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
+                        Tarefas
+                    </h1>
+
+                    <p className="mt-1 text-sm text-zinc-500">
+                        Organize e acompanhe as
+                        atividades do GEBM.
+                    </p>
+                </div>
+
+                <Button
                     type="button"
                     onClick={() =>
-                        setIsCreateModalOpen(true)
+                        setIsCreateModalOpen(
+                            true
+                        )
                     }
                 >
                     + Nova tarefa
-                </button>
-                {isCreateModalOpen && (
+                </Button>
+            </header>
+
+            {/* Kanban board */}
+            <DndContext
+                sensors={sensors}
+                onDragEnd={handleDragEnd}
+                collisionDetection={
+                    closestCorners
+                }
+            >
+                <div className="grid gap-4 md:grid-cols-3">
+                    {columns.map(
+                        (column) => (
+                            <KanbanColumn
+                                key={column.id}
+                                id={column.id}
+                                title={
+                                    column.title
+                                }
+                                tasks={tasks
+                                    .filter(
+                                        (
+                                            task
+                                        ) =>
+                                            task.status ===
+                                            column.id
+                                    )
+                                    .sort(
+                                        (
+                                            a,
+                                            b
+                                        ) =>
+                                            a.position -
+                                            b.position
+                                    )}
+                                onEdit={
+                                    setEditingTask
+                                }
+                                onDelete={
+                                    setDeletingTask
+                                }
+                            />
+                        )
+                    )}
+                </div>
+            </DndContext>
+
+            {/* Create task dialog */}
+            <Dialog
+                open={
+                    isCreateModalOpen
+                }
+                onOpenChange={
+                    setIsCreateModalOpen
+                }
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>
+                            Nova tarefa
+                        </DialogTitle>
+
+                        <DialogDescription>
+                            Crie uma nova
+                            tarefa para o
+                            GEBM.
+                        </DialogDescription>
+                    </DialogHeader>
+
                     <TaskForm
                         onSubmit={(data) => {
                             createTask(data)
-                            setIsCreateModalOpen(false)
-                        }}
-                    />
-                )}
-            </div>
-            <div>
-                {editingTask && (
-                    <TaskForm
-                        defaultValues={{
-                            title: editingTask.title,
-                            description:
-                                editingTask.description ?? "",
-                            priority: editingTask.priority,
-                            assignee:
-                                editingTask.assignee ?? "",
-                            dueDate:
-                                editingTask.dueDate ?? "",
-                        }}
-                        submitLabel="Salvar alterações"
-                        onSubmit={(data) => {
-                            updateTask(
-                                editingTask.id,
-                                data
+                            setIsCreateModalOpen(
+                                false
                             )
-
-                            setEditingTask(null)
                         }}
+                        onCancel={() =>
+                            setIsCreateModalOpen(
+                                false
+                            )
+                        }
                     />
-                )}
-            </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit task dialog */}
+            <Dialog
+                open={
+                    editingTask !== null
+                }
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setEditingTask(null)
+                    }
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>
+                            Editar tarefa
+                        </DialogTitle>
+
+                        <DialogDescription>
+                            Atualize as
+                            informações da
+                            tarefa.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {editingTask && (
+                        <TaskForm
+                            defaultValues={{
+                                title:
+                                    editingTask.title,
+
+                                description:
+                                    editingTask.description ??
+                                    "",
+
+                                priority:
+                                    editingTask.priority,
+
+                                assignee:
+                                    editingTask.assignee ??
+                                    "",
+
+                                dueDate:
+                                    editingTask.dueDate ??
+                                    "",
+                            }}
+                            submitLabel="Salvar alterações"
+                            onSubmit={(data) => {
+                                updateTask(
+                                    editingTask.id,
+                                    data
+                                )
+
+                                setEditingTask(
+                                    null
+                                )
+                            }}
+                            onCancel={() =>
+                                setEditingTask(
+                                    null
+                                )
+                            }
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete confirmation */}
+            <AlertDialog
+                open={
+                    deletingTask !== null
+                }
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setDeletingTask(
+                            null
+                        )
+                    }
+                }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            Excluir tarefa?
+                        </AlertDialogTitle>
+
+                        <AlertDialogDescription>
+                            {deletingTask
+                                ? `A tarefa "${deletingTask.title}" será excluída permanentemente. Essa ação não poderá ser desfeita.`
+                                : "Essa ação não poderá ser desfeita."}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>
+                            Cancelar
+                        </AlertDialogCancel>
+
+                        <AlertDialogAction
+                            variant="destructive"
+                            onClick={() => {
+                                if (
+                                    deletingTask
+                                ) {
+                                    deleteTask(
+                                        deletingTask.id
+                                    )
+                                }
+
+                                setDeletingTask(
+                                    null
+                                )
+                            }}
+                        >
+                            Excluir tarefa
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }
