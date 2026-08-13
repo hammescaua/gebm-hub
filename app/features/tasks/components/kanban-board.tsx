@@ -31,7 +31,7 @@ import type {
 
 import {
     columns,
-} from "../data/mock-tasks"
+} from "../data/kanban-columns"
 
 import {
     createTask,
@@ -65,6 +65,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
+
 function isTaskStatus(
     value: string
 ): value is TaskStatus {
@@ -75,13 +76,16 @@ function isTaskStatus(
     )
 }
 
+
 type KanbanBoardProps = {
     initialTasks: Task[]
 }
 
+
 export default function KanbanBoard({
     initialTasks,
 }: KanbanBoardProps) {
+
     const [tasks, setTasks] =
         useState<Task[]>(initialTasks)
 
@@ -99,6 +103,13 @@ export default function KanbanBoard({
 
     const [isSubmitting, setIsSubmitting] =
         useState(false)
+
+
+    /*
+     * ============================================================
+     * DND SENSORS
+     * ============================================================
+     */
 
     const sensors = useSensors(
         useSensor(
@@ -119,9 +130,10 @@ export default function KanbanBoard({
         )
     )
 
+
     /*
      * ============================================================
-     * CREATE
+     * CREATE TASK
      * ============================================================
      */
 
@@ -140,31 +152,42 @@ export default function KanbanBoard({
             ])
 
             setIsCreateModalOpen(false)
+
         } catch (error) {
             console.error(
                 "Erro ao criar tarefa:",
                 error
             )
+
+            alert(
+                "Não foi possível criar a tarefa."
+            )
+
         } finally {
             setIsSubmitting(false)
         }
     }
 
+
     /*
      * ============================================================
-     * UPDATE
+     * UPDATE TASK
      * ============================================================
      */
 
     async function handleUpdateTask(
         data: TaskFormData
     ) {
+
         if (!editingTask) {
             return
         }
 
         const taskId =
             editingTask.id
+
+        const previousTask =
+            editingTask
 
         try {
             setIsSubmitting(true)
@@ -176,60 +199,91 @@ export default function KanbanBoard({
                 )
 
             setTasks((currentTasks) =>
-                currentTasks.map((task) =>
-                    task.id === taskId
-                        ? updatedTask
-                        : task
+                currentTasks.map(
+                    (task) =>
+                        task.id === taskId
+                            ? {
+                                ...updatedTask,
+                                position:
+                                    task.position,
+                            }
+                            : task
                 )
             )
 
             setEditingTask(null)
+
         } catch (error) {
             console.error(
                 "Erro ao atualizar tarefa:",
                 error
             )
+
+            setTasks((currentTasks) =>
+                currentTasks.map(
+                    (task) =>
+                        task.id === taskId
+                            ? previousTask
+                            : task
+                )
+            )
+
+            alert(
+                "Não foi possível atualizar a tarefa."
+            )
+
         } finally {
             setIsSubmitting(false)
         }
     }
 
+
     /*
      * ============================================================
-     * DELETE
+     * DELETE TASK
      * ============================================================
      */
 
     async function handleDeleteTask() {
+
         if (!deletingTask) {
             return
         }
 
-        const taskId =
-            deletingTask.id
+        const taskToDelete =
+            deletingTask
+
+        const previousTasks =
+            tasks
 
         try {
             setIsSubmitting(true)
 
-            await deleteTask(taskId)
-
+            /*
+             * Atualização otimista.
+             *
+             * A tarefa desaparece imediatamente
+             * da interface.
+             */
             setTasks((currentTasks) =>
                 currentTasks
                     .filter(
                         (task) =>
-                            task.id !== taskId
+                            task.id !==
+                            taskToDelete.id
                     )
                     .map((task) => {
+
                         if (
                             task.status !==
-                            deletingTask.status
+                            taskToDelete.status
                         ) {
                             return task
                         }
 
                         if (
                             task.position >
-                            deletingTask.position
+                            taskToDelete.position
                         ) {
                             return {
                                 ...task,
@@ -242,132 +296,148 @@ export default function KanbanBoard({
                     })
             )
 
+            await deleteTask(
+                taskToDelete.id
+            )
+
             setDeletingTask(null)
+
         } catch (error) {
+
             console.error(
                 "Erro ao excluir tarefa:",
                 error
             )
+
+            /*
+             * Rollback.
+             */
+            setTasks(previousTasks)
+
+            alert(
+                "Não foi possível excluir a tarefa."
+            )
+
         } finally {
             setIsSubmitting(false)
         }
     }
 
+
     /*
      * ============================================================
-     * LOCAL REORDER
+     * REORDER LOCAL
      * ============================================================
-     *
-     * Primeiro atualizamos a UI.
-     * Depois persistimos no banco.
      */
 
-    function reorderTasksLocally(
+    function buildReorderedTasks(
+        currentTasks: Task[],
         activeId: string,
         overId: string
-    ) {
-        setTasks((currentTasks) => {
-            const activeTask =
-                currentTasks.find(
-                    (task) =>
-                        task.id === activeId
-                )
+    ): Task[] {
 
-            const overTask =
-                currentTasks.find(
-                    (task) =>
-                        task.id === overId
-                )
-
-            if (
-                !activeTask ||
-                !overTask
-            ) {
-                return currentTasks
-            }
-
-            if (
-                activeTask.status !==
-                overTask.status
-            ) {
-                return currentTasks
-            }
-
-            const columnTasks =
-                currentTasks
-                    .filter(
-                        (task) =>
-                            task.status ===
-                            activeTask.status
-                    )
-                    .sort(
-                        (a, b) =>
-                            a.position -
-                            b.position
-                    )
-
-            const oldIndex =
-                columnTasks.findIndex(
-                    (task) =>
-                        task.id === activeId
-                )
-
-            const newIndex =
-                columnTasks.findIndex(
-                    (task) =>
-                        task.id === overId
-                )
-
-            if (
-                oldIndex === -1 ||
-                newIndex === -1 ||
-                oldIndex === newIndex
-            ) {
-                return currentTasks
-            }
-
-            const reorderedTasks =
-                arrayMove(
-                    columnTasks,
-                    oldIndex,
-                    newIndex
-                )
-
-            const positionById =
-                new Map(
-                    reorderedTasks.map(
-                        (
-                            task,
-                            index
-                        ) => [
-                                task.id,
-                                index,
-                            ]
-                    )
-                )
-
-            return currentTasks.map(
-                (task) => {
-                    const position =
-                        positionById.get(
-                            task.id
-                        )
-
-                    if (
-                        position ===
-                        undefined
-                    ) {
-                        return task
-                    }
-
-                    return {
-                        ...task,
-                        position,
-                    }
-                }
+        const activeTask =
+            currentTasks.find(
+                (task) =>
+                    task.id === activeId
             )
-        })
+
+        const overTask =
+            currentTasks.find(
+                (task) =>
+                    task.id === overId
+            )
+
+        if (
+            !activeTask ||
+            !overTask
+        ) {
+            return currentTasks
+        }
+
+        if (
+            activeTask.status !==
+            overTask.status
+        ) {
+            return currentTasks
+        }
+
+        const columnTasks =
+            currentTasks
+                .filter(
+                    (task) =>
+                        task.status ===
+                        activeTask.status
+                )
+                .sort(
+                    (a, b) =>
+                        a.position -
+                        b.position
+                )
+
+        const oldIndex =
+            columnTasks.findIndex(
+                (task) =>
+                    task.id === activeId
+            )
+
+        const newIndex =
+            columnTasks.findIndex(
+                (task) =>
+                    task.id === overId
+            )
+
+        if (
+            oldIndex === -1 ||
+            newIndex === -1 ||
+            oldIndex === newIndex
+        ) {
+            return currentTasks
+        }
+
+        const reordered =
+            arrayMove(
+                columnTasks,
+                oldIndex,
+                newIndex
+            )
+
+        const positionById =
+            new Map(
+                reordered.map(
+                    (
+                        task,
+                        index
+                    ) => [
+                            task.id,
+                            index,
+                        ]
+                )
+            )
+
+        return currentTasks.map(
+            (task) => {
+
+                const position =
+                    positionById.get(
+                        task.id
+                    )
+
+                if (
+                    position ===
+                    undefined
+                ) {
+                    return task
+                }
+
+                return {
+                    ...task,
+                    position,
+                }
+            }
+        )
     }
+
 
     /*
      * ============================================================
@@ -375,117 +445,139 @@ export default function KanbanBoard({
      * ============================================================
      */
 
-    function moveTaskLocally(
+    function buildMovedTasks(
+        currentTasks: Task[],
         taskId: string,
         newStatus: TaskStatus,
         overId?: string
-    ) {
-        setTasks((currentTasks) => {
-            const task =
-                currentTasks.find(
-                    (item) =>
-                        item.id === taskId
-                )
+    ): Task[] {
 
-            if (!task) {
-                return currentTasks
-            }
-
-            const sourceTasks =
-                currentTasks
-                    .filter(
-                        (item) =>
-                            item.status ===
-                            task.status &&
-                            item.id !== taskId
-                    )
-                    .sort(
-                        (a, b) =>
-                            a.position -
-                            b.position
-                    )
-
-            const destinationTasks =
-                currentTasks
-                    .filter(
-                        (item) =>
-                            item.status ===
-                            newStatus
-                    )
-                    .sort(
-                        (a, b) =>
-                            a.position -
-                            b.position
-                    )
-
-            const targetIndex =
-                overId
-                    ? destinationTasks.findIndex(
-                        (item) =>
-                            item.id ===
-                            overId
-                    )
-                    : destinationTasks.length
-
-            const insertIndex =
-                targetIndex === -1
-                    ? destinationTasks.length
-                    : targetIndex
-
-            destinationTasks.splice(
-                insertIndex,
-                0,
-                {
-                    ...task,
-                    status: newStatus,
-                }
+        const task =
+            currentTasks.find(
+                (item) =>
+                    item.id === taskId
             )
 
-            const updatedSource =
-                sourceTasks.map(
-                    (
-                        item,
-                        index
-                    ) => ({
-                        ...item,
-                        position:
-                            index,
-                    })
+        if (!task) {
+            return currentTasks
+        }
+
+        /*
+         * Se já está na mesma coluna,
+         * não precisamos fazer move.
+         */
+        if (
+            task.status ===
+            newStatus
+        ) {
+            return currentTasks
+        }
+
+        const sourceTasks =
+            currentTasks
+                .filter(
+                    (item) =>
+                        item.status ===
+                        task.status &&
+                        item.id !==
+                        taskId
+                )
+                .sort(
+                    (a, b) =>
+                        a.position -
+                        b.position
                 )
 
-            const updatedDestination =
-                destinationTasks.map(
-                    (
-                        item,
-                        index
-                    ) => ({
-                        ...item,
-                        status:
-                            newStatus,
-                        position:
-                            index,
-                    })
+        const destinationTasks =
+            currentTasks
+                .filter(
+                    (item) =>
+                        item.status ===
+                        newStatus
+                )
+                .sort(
+                    (a, b) =>
+                        a.position -
+                        b.position
                 )
 
-            const updatedTasks =
-                new Map(
-                    [
-                        ...updatedSource,
-                        ...updatedDestination,
-                    ].map((item) => [
+        let insertIndex =
+            destinationTasks.length
+
+        if (overId) {
+
+            const overIndex =
+                destinationTasks.findIndex(
+                    (item) =>
+                        item.id ===
+                        overId
+                )
+
+            if (
+                overIndex !== -1
+            ) {
+                insertIndex =
+                    overIndex
+            }
+        }
+
+        destinationTasks.splice(
+            insertIndex,
+            0,
+            {
+                ...task,
+                status:
+                    newStatus,
+            }
+        )
+
+        const normalizedSource =
+            sourceTasks.map(
+                (
+                    item,
+                    index
+                ) => ({
+                    ...item,
+                    position:
+                        index,
+                })
+            )
+
+        const normalizedDestination =
+            destinationTasks.map(
+                (
+                    item,
+                    index
+                ) => ({
+                    ...item,
+                    status:
+                        newStatus,
+                    position:
+                        index,
+                })
+            )
+
+        const updatedById =
+            new Map(
+                [
+                    ...normalizedSource,
+                    ...normalizedDestination,
+                ].map(
+                    (item) => [
                         item.id,
                         item,
-                    ])
+                    ]
                 )
-
-            return currentTasks.map(
-                (item) =>
-                    updatedTasks.get(
-                        item.id
-                    ) ?? item
             )
-        })
+
+        return currentTasks.map(
+            (item) =>
+                updatedById.get(
+                    item.id
+                ) ?? item
+        )
     }
+
 
     /*
      * ============================================================
@@ -496,13 +588,15 @@ export default function KanbanBoard({
     function handleDragStart(
         event: DragStartEvent
     ) {
+
         const taskId =
             String(event.active.id)
 
         const task =
             tasks.find(
                 (item) =>
-                    item.id === taskId
+                    item.id ===
+                    taskId
             )
 
         if (!task) {
@@ -511,6 +605,7 @@ export default function KanbanBoard({
 
         setActiveTask(task)
     }
+
 
     /*
      * ============================================================
@@ -521,6 +616,7 @@ export default function KanbanBoard({
     async function handleDragEnd(
         event: DragEndEvent
     ) {
+
         const {
             active,
             over,
@@ -539,33 +635,38 @@ export default function KanbanBoard({
             String(over.id)
 
         if (
-            activeId === overId
+            activeId ===
+            overId
         ) {
             return
         }
 
+        const currentTasks =
+            tasks
+
         const activeTask =
-            tasks.find(
+            currentTasks.find(
                 (task) =>
                     task.id ===
                     activeId
-            )
-
-        const overTask =
-            tasks.find(
-                (task) =>
-                    task.id ===
-                    overId
             )
 
         if (!activeTask) {
             return
         }
 
+        const overTask =
+            currentTasks.find(
+                (task) =>
+                    task.id ===
+                    overId
+            )
+
+
         /*
-         * --------------------------------------------------------
+         * ========================================================
          * REORDER DENTRO DA MESMA COLUNA
-         * --------------------------------------------------------
+         * ========================================================
          */
 
         if (
@@ -573,74 +674,82 @@ export default function KanbanBoard({
             activeTask.status ===
             overTask.status
         ) {
-            const previousTasks =
-                tasks
 
-            reorderTasksLocally(
-                activeId,
-                overId
+            const previousTasks =
+                currentTasks
+
+            const updatedTasks =
+                buildReorderedTasks(
+                    currentTasks,
+                    activeId,
+                    overId
+                )
+
+            if (
+                updatedTasks ===
+                currentTasks
+            ) {
+                return
+            }
+
+            /*
+             * UI otimista.
+             */
+            setTasks(
+                updatedTasks
             )
 
-            const reorderedColumn =
-                tasks
-                    .filter(
-                        (task) =>
-                            task.status ===
-                            activeTask.status
-                    )
-                    .sort(
-                        (a, b) =>
-                            a.position -
-                            b.position
-                    )
-
-            const oldIndex =
-                reorderedColumn.findIndex(
+            const reorderedTask =
+                updatedTasks.find(
                     (task) =>
                         task.id ===
                         activeId
                 )
 
-            const newIndex =
-                reorderedColumn.findIndex(
-                    (task) =>
-                        task.id ===
-                        overId
-                )
-
-            if (
-                oldIndex === -1 ||
-                newIndex === -1
-            ) {
+            if (!reorderedTask) {
                 return
             }
 
             try {
+
                 await moveTask({
-                    taskId: activeId,
+                    taskId:
+                        activeId,
+
                     status:
-                        activeTask.status,
+                        reorderedTask.status,
+
                     position:
-                        newIndex,
+                        reorderedTask.position,
                 })
+
             } catch (error) {
+
                 console.error(
                     "Erro ao reordenar tarefa:",
                     error
                 )
 
+                /*
+                 * Rollback.
+                 */
                 setTasks(
                     previousTasks
+                )
+
+                alert(
+                    "Não foi possível salvar a nova posição."
                 )
             }
 
             return
         }
 
+
         /*
-         * --------------------------------------------------------
+         * ========================================================
          * MOVER PARA OUTRA COLUNA
-         * --------------------------------------------------------
+         * ========================================================
          */
 
         const targetStatus =
@@ -656,44 +765,74 @@ export default function KanbanBoard({
         }
 
         const previousTasks =
-            tasks
+            currentTasks
 
-        moveTaskLocally(
-            activeId,
-            targetStatus,
-            overTask?.id
+        const updatedTasks =
+            buildMovedTasks(
+                currentTasks,
+                activeId,
+                targetStatus,
+                overTask?.id
+            )
+
+        if (
+            updatedTasks ===
+            currentTasks
+        ) {
+            return
+        }
+
+        /*
+         * UI otimista.
+         */
+        setTasks(
+            updatedTasks
         )
 
-        const updatedTask =
-            tasks.find(
+        const movedTask =
+            updatedTasks.find(
                 (task) =>
                     task.id ===
                     activeId
             )
 
-        if (!updatedTask) {
+        if (!movedTask) {
             return
         }
 
         try {
+
             await moveTask({
-                taskId: activeId,
+                taskId:
+                    activeId,
+
                 status:
-                    targetStatus,
+                    movedTask.status,
+
                 position:
-                    updatedTask.position,
+                    movedTask.position,
             })
+
         } catch (error) {
+
             console.error(
                 "Erro ao mover tarefa:",
                 error
             )
 
+            /*
+             * Rollback.
+             */
             setTasks(
                 previousTasks
             )
+
+            alert(
+                "Não foi possível mover a tarefa."
+            )
         }
     }
+
 
     /*
      * ============================================================
@@ -707,6 +846,7 @@ export default function KanbanBoard({
         setActiveTask(null)
     }
 
+
     /*
      * ============================================================
      * RENDER
@@ -715,10 +855,15 @@ export default function KanbanBoard({
 
     return (
         <div className="space-y-6">
-            {/* Board header */}
+
+            {/* ==================================================
+                HEADER
+            ================================================== */}
 
             <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
                 <div>
+
                     <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
                         Tarefas
                     </h1>
@@ -728,6 +873,7 @@ export default function KanbanBoard({
                         as atividades do
                         GEBM.
                     </p>
+
                 </div>
 
                 <Button
@@ -743,12 +889,18 @@ export default function KanbanBoard({
                 >
                     + Nova tarefa
                 </Button>
+
             </header>
 
-            {/* Kanban board */}
+
+            {/* ==================================================
+                KANBAN
+            ================================================== */}
 
             <DndContext
-                sensors={sensors}
+                sensors={
+                    sensors
+                }
                 onDragStart={
                     handleDragStart
                 }
@@ -762,9 +914,12 @@ export default function KanbanBoard({
                     closestCorners
                 }
             >
+
                 <div className="grid gap-4 md:grid-cols-3">
+
                     {columns.map(
                         (column) => (
+
                             <KanbanColumn
                                 key={
                                     column.id
@@ -775,22 +930,24 @@ export default function KanbanBoard({
                                 title={
                                     column.title
                                 }
-                                tasks={tasks
-                                    .filter(
-                                        (
-                                            task
-                                        ) =>
-                                            task.status ===
-                                            column.id
-                                    )
-                                    .sort(
-                                        (
-                                            a,
-                                            b
-                                        ) =>
-                                            a.position -
-                                            b.position
-                                    )}
+                                tasks={
+                                    tasks
+                                        .filter(
+                                            (
+                                                task
+                                            ) =>
+                                                task.status ===
+                                                column.id
+                                        )
+                                        .sort(
+                                            (
+                                                a,
+                                                b
+                                            ) =>
+                                                a.position -
+                                                b.position
+                                        )
+                                }
                                 onEdit={
                                     setEditingTask
                                 }
@@ -798,22 +955,37 @@ export default function KanbanBoard({
                                     setDeletingTask
                                 }
                             />
+
                         )
                     )}
+
                 </div>
 
+
+                {/* ==================================================
+                    DRAG OVERLAY
+                ================================================== */}
+
                 <DragOverlay>
+
                     {activeTask ? (
+
                         <article className="rotate-2 rounded-xl border border-white/15 bg-zinc-900 p-4 shadow-2xl shadow-black/40">
+
                             <TaskCardContent
                                 task={
                                     activeTask
                                 }
                             />
+
                         </article>
+
                     ) : null}
+
                 </DragOverlay>
+
             </DndContext>
+
 
             {/* ==================================================
                 CREATE DIALOG
@@ -827,8 +999,11 @@ export default function KanbanBoard({
                     setIsCreateModalOpen
                 }
             >
+
                 <DialogContent>
+
                     <DialogHeader>
+
                         <DialogTitle>
                             Nova tarefa
                         </DialogTitle>
@@ -838,6 +1013,7 @@ export default function KanbanBoard({
                             tarefa para o
                             GEBM.
                         </DialogDescription>
+
                     </DialogHeader>
 
                     <TaskForm
@@ -853,8 +1029,11 @@ export default function KanbanBoard({
                             isSubmitting
                         }
                     />
+
                 </DialogContent>
+
             </Dialog>
+
 
             {/* ==================================================
                 EDIT DIALOG
@@ -868,15 +1047,20 @@ export default function KanbanBoard({
                 onOpenChange={(
                     open
                 ) => {
+
                     if (!open) {
                         setEditingTask(
                             null
                         )
                     }
+
                 }}
             >
+
                 <DialogContent>
+
                     <DialogHeader>
+
                         <DialogTitle>
                             Editar tarefa
                         </DialogTitle>
@@ -886,9 +1070,12 @@ export default function KanbanBoard({
                             informações da
                             tarefa.
                         </DialogDescription>
+
                     </DialogHeader>
 
+
                     {editingTask && (
+
                         <TaskForm
                             defaultValues={{
                                 title:
@@ -922,9 +1109,13 @@ export default function KanbanBoard({
                                 isSubmitting
                             }
                         />
+
                     )}
+
                 </DialogContent>
+
             </Dialog>
+
 
             {/* ==================================================
                 DELETE CONFIRMATION
@@ -938,15 +1129,20 @@ export default function KanbanBoard({
                 onOpenChange={(
                     open
                 ) => {
+
                     if (!open) {
                         setDeletingTask(
                             null
                         )
                     }
+
                 }}
             >
+
                 <AlertDialogContent>
+
                     <AlertDialogHeader>
+
                         <AlertDialogTitle>
                             Excluir tarefa?
                         </AlertDialogTitle>
@@ -956,9 +1152,12 @@ export default function KanbanBoard({
                                 ? `A tarefa "${deletingTask.title}" será excluída permanentemente. Essa ação não poderá ser desfeita.`
                                 : "Essa ação não poderá ser desfeita."}
                         </AlertDialogDescription>
+
                     </AlertDialogHeader>
 
+
                     <AlertDialogFooter>
+
                         <AlertDialogCancel
                             disabled={
                                 isSubmitting
@@ -966,6 +1165,7 @@ export default function KanbanBoard({
                         >
                             Cancelar
                         </AlertDialogCancel>
+
 
                         <AlertDialogAction
                             variant="destructive"
@@ -978,9 +1178,13 @@ export default function KanbanBoard({
                         >
                             Excluir tarefa
                         </AlertDialogAction>
+
                     </AlertDialogFooter>
+
                 </AlertDialogContent>
+
             </AlertDialog>
+
         </div>
     )
 }

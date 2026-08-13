@@ -39,6 +39,7 @@ type TaskFormProps = {
         data: TaskFormData
     ) => void
     onCancel?: () => void
+    disabled?: boolean
 }
 
 export function TaskForm({
@@ -46,6 +47,7 @@ export function TaskForm({
     submitLabel = "Criar tarefa",
     onSubmit,
     onCancel,
+    disabled = false,
 }: TaskFormProps) {
     const {
         register,
@@ -185,6 +187,7 @@ export function TaskForm({
                         type="button"
                         variant="outline"
                         onClick={onCancel}
+                        disabled={disabled || isSubmitting}
                     >
                         Cancelar
                     </Button>
@@ -192,9 +195,9 @@ export function TaskForm({
 
                 <Button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={disabled || isSubmitting}
                 >
-                    {isSubmitting
+                    {isSubmitting || disabled
                         ? "Salvando..."
                         : submitLabel}
                 </Button>
