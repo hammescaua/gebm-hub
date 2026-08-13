@@ -30,7 +30,6 @@ import type {
 } from "../schemas/task-schema"
 
 import {
-    mockTasks,
     columns,
 } from "../data/mock-tasks"
 
@@ -57,6 +56,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import TaskCardContent from "./task-card-content"
 
 function isTaskStatus(
     value: string
@@ -68,9 +68,13 @@ function isTaskStatus(
     )
 }
 
-export default function KanbanBoard() {
+type KanbanBoardProps = {
+    initialTasks: Task[]
+}
+
+export default function KanbanBoard({ initialTasks }: KanbanBoardProps) {
     const [tasks, setTasks] =
-        useState<Task[]>(mockTasks)
+        useState<Task[]>(initialTasks)
 
     const [activeTask, setActiveTask] =
         useState<Task | null>(null)
@@ -413,64 +417,54 @@ export default function KanbanBoard() {
     function handleDragEnd(
         event: DragEndEvent
     ) {
-        const {
-            active,
-            over,
-        } = event
+        const { active, over } = event
 
         if (!over) {
+            setActiveTask(null)
             return
         }
 
-        const activeId =
-            String(active.id)
-
-        const overId =
-            String(over.id)
+        const activeId = String(active.id)
+        const overId = String(over.id)
 
         if (activeId === overId) {
+            setActiveTask(null)
             return
         }
 
-        const activeTask =
-            tasks.find(
-                (task) =>
-                    task.id === activeId
-            )
+        const activeTask = tasks.find(
+            (task) => task.id === activeId
+        )
 
-        const overTask =
-            tasks.find(
-                (task) =>
-                    task.id === overId
-            )
+        const overTask = tasks.find(
+            (task) => task.id === overId
+        )
 
         if (!activeTask) {
+            setActiveTask(null)
             return
         }
 
-        // Reorder inside the same column.
+        // Reordenar dentro da mesma coluna
         if (
             overTask &&
-            activeTask.status ===
-            overTask.status
+            activeTask.status === overTask.status
         ) {
             reorderTasks(
                 activeId,
                 overId
             )
 
+            setActiveTask(null)
             return
         }
 
-        // Move to another column.
+        // Mover para outra coluna
         const targetStatus =
             overTask?.status ?? overId
 
-        if (
-            !isTaskStatus(
-                targetStatus
-            )
-        ) {
+        if (!isTaskStatus(targetStatus)) {
+            setActiveTask(null)
             return
         }
 
@@ -479,6 +473,8 @@ export default function KanbanBoard() {
             targetStatus,
             overTask?.id
         )
+
+        setActiveTask(null)
     }
 
     function handleDragCancel(
@@ -518,6 +514,8 @@ export default function KanbanBoard() {
             <DndContext
                 sensors={sensors}
                 onDragEnd={handleDragEnd}
+                onDragCancel={handleDragCancel}
+                onDragStart={handleDragStart}
                 collisionDetection={
                     closestCorners
                 }
@@ -557,6 +555,15 @@ export default function KanbanBoard() {
                         )
                     )}
                 </div>
+                <DragOverlay>
+                    {activeTask ? (
+                        <article className="rotate-2 rounded-xl border border-white/15 bg-zinc-900 p-4 shadow-2xl shadow-black/40">
+                            <TaskCardContent
+                                task={activeTask}
+                            />
+                        </article>
+                    ) : null}
+                </DragOverlay>
             </DndContext>
 
             {/* Create task dialog */}

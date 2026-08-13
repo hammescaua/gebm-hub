@@ -34,15 +34,13 @@
 //  createdAt   DateTime     @default(now())
 //}
 
-
-
-
 generator client {
-  provider = "prisma-client-js"
+    provider = "prisma-client"
+    output   = "../generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
+    provider = "postgresql"
 }
 
 model User {
@@ -97,4 +95,30 @@ model Team {
 
   //map
   @@map("teams")
+}
+
+enum TaskStatus {
+    TODO
+    IN_PROGRESS
+    DONE
+}
+
+enum TaskPriority {
+    LOW
+    MEDIUM
+    HIGH
+}
+
+model Task {
+    id          String       @id @default(cuid())
+    title       String
+    description String?
+    priority    TaskPriority @default(MEDIUM)
+    status      TaskStatus   @default(TODO)
+    position    Int          @default(0)
+    assignee    String?
+    dueDate     DateTime?
+    createdAt   DateTime     @default(now())
+    updatedAt   DateTime     @updatedAt
+    @@index([status, position])
 }
